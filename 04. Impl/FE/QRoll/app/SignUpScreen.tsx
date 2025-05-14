@@ -8,6 +8,8 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  useWindowDimensions,
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { useRouter } from 'expo-router';
@@ -35,27 +37,28 @@ export default function SignUpScreen() {
   const [faculty, setFaculty] = useState('');
   const [program, setProgram] = useState('');
   const router = useRouter();
+  const { width } = useWindowDimensions();
 
   const handleSignUp = async () => {
     const idFormat = /^\d{4}-\d{4}$/;
-  
+
     if (!fullName || !email || !password || !confirmPassword || !id ||
         (role === 'Student' && (!faculty || !program)) ||
         (role === 'Instructor' && !faculty)) {
       Alert.alert('Missing Fields', 'Please fill in all fields.');
       return;
     }
-  
+
     if (!idFormat.test(id)) {
       Alert.alert('Invalid ID Format', 'Student/Employee ID must be in the format ####-#### (e.g., 2021-3471).');
       return;
     }
-  
+
     if (password !== confirmPassword) {
       Alert.alert('Password Mismatch', 'Passwords do not match.');
       return;
     }
-  
+
     try {
       const response = await fetch('http://localhost:3001/api/auth/register', {
         method: 'POST',
@@ -70,7 +73,7 @@ export default function SignUpScreen() {
           faculty,
         }),
       });
-  
+
       if (response.status === 201) {
         Alert.alert('Success', `Welcome, ${fullName}!`);
         router.push('/LoginScreen');
@@ -86,148 +89,153 @@ export default function SignUpScreen() {
   const programs = facultyPrograms[faculty as keyof typeof facultyPrograms] || [];
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <Text style={styles.title}>Create Account</Text>
+    <KeyboardAvoidingView style={styles.outer} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={[styles.container, width > 768 && styles.containerWeb]}>
+        <Text style={styles.title}>Create Account</Text>
 
-      <TextInput placeholder="Full Name" value={fullName} onChangeText={setFullName} style={styles.input} />
-      <TextInput placeholder="Email Address" value={email} onChangeText={setEmail} style={styles.input} keyboardType="email-address" />
+        <TextInput placeholder="Full Name" value={fullName} onChangeText={setFullName} style={styles.input} />
+        <TextInput placeholder="Email Address" value={email} onChangeText={setEmail} style={styles.input} keyboardType="email-address" />
 
-      <View style={styles.passwordWrapper}>
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            placeholder="Password"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={showPassword}
+            style={styles.passwordInput}
+          />
+          <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
+            <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.passwordWrapper}>
+          <TextInput
+            placeholder="Confirm Password"
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            secureTextEntry={showConfirmPassword}
+            style={styles.passwordInput}
+          />
+          <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
+            <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.label}>Role</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={role}
+            onValueChange={(value) => {
+              setRole(value);
+              setFaculty('');
+              setProgram('');
+            }}
+            style={styles.picker}
+          >
+            <Picker.Item label="Student" value="Student" />
+            <Picker.Item label="Instructor" value="Instructor" />
+          </Picker>
+        </View>
+
         <TextInput
-          placeholder="Password"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry={showPassword}
-          style={styles.passwordInput}
-        />
-        <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeButton}>
-          <Ionicons name={showPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.passwordWrapper}>
-        <TextInput
-          placeholder="Confirm Password"
-          value={confirmPassword}
-          onChangeText={setConfirmPassword}
-          secureTextEntry={showConfirmPassword}
-          style={styles.passwordInput}
-        />
-        <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)} style={styles.eyeButton}>
-          <Ionicons name={showConfirmPassword ? 'eye-off' : 'eye'} size={22} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      <Text style={styles.label}>Role</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={role}
-          onValueChange={(value) => {
-            setRole(value);
-            setFaculty('');
-            setProgram('');
+          placeholder="Student/Employee ID (e.g., 2021-3471)"
+          value={id}
+          onChangeText={(text) => {
+            let cleaned = text.replace(/\D/g, '');
+            if (cleaned.length > 8) cleaned = cleaned.slice(0, 8);
+            let formatted = cleaned;
+            if (cleaned.length > 4) {
+              formatted = cleaned.slice(0, 4) + '-' + cleaned.slice(4);
+            }
+            setId(formatted);
           }}
-          style={styles.picker}
-        >
-          <Picker.Item label="Student" value="Student" />
-          <Picker.Item label="Instructor" value="Instructor" />
-        </Picker>
-      </View>
+          style={styles.input}
+          keyboardType="numeric"
+        />
 
-      <TextInput
-  placeholder="Student/Employee ID (e.g., 2021-3471)"
-  value={id}
-  onChangeText={(text) => {
-    let cleaned = text.replace(/\D/g, ''); // Remove non-digits
-    if (cleaned.length > 8) cleaned = cleaned.slice(0, 8); // Limit to 8 digits
+        {role === 'Student' && (
+          <>
+            <Text style={styles.label}>Faculty</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={faculty}
+                onValueChange={(value) => {
+                  setFaculty(value);
+                  setProgram('');
+                }}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Faculty" value="" />
+                {Object.keys(facultyPrograms).map((fac) => (
+                  <Picker.Item key={fac} label={fac} value={fac} />
+                ))}
+              </Picker>
+            </View>
 
-    let formatted = cleaned;
-    if (cleaned.length > 4) {
-      formatted = cleaned.slice(0, 4) + '-' + cleaned.slice(4);
-    }
-    setId(formatted);
-  }}
-  style={styles.input}
-  keyboardType="numeric"
-/>
+            {faculty !== '' && (
+              <>
+                <Text style={styles.label}>Program</Text>
+                <View style={styles.pickerContainer}>
+                  <Picker
+                    selectedValue={program}
+                    onValueChange={setProgram}
+                    style={styles.picker}
+                  >
+                    <Picker.Item label="Select Program" value="" />
+                    {programs.map((prog) => (
+                      <Picker.Item key={prog} label={prog} value={prog} />
+                    ))}
+                  </Picker>
+                </View>
+              </>
+            )}
+          </>
+        )}
 
+        {role === 'Instructor' && (
+          <>
+            <Text style={styles.label}>Faculty</Text>
+            <View style={styles.pickerContainer}>
+              <Picker
+                selectedValue={faculty}
+                onValueChange={setFaculty}
+                style={styles.picker}
+              >
+                <Picker.Item label="Select Faculty" value="" />
+                {Object.keys(facultyPrograms).map((fac) => (
+                  <Picker.Item key={fac} label={fac} value={fac} />
+                ))}
+              </Picker>
+            </View>
+          </>
+        )}
 
-      {/* Faculty and Program for Student */}
-      {role === 'Student' && (
-        <>
-          <Text style={styles.label}>Faculty</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={faculty}
-              onValueChange={(value) => {
-                setFaculty(value);
-                setProgram('');
-              }}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Faculty" value="" />
-              {Object.keys(facultyPrograms).map((fac) => (
-                <Picker.Item key={fac} label={fac} value={fac} />
-              ))}
-            </Picker>
-          </View>
+        <TouchableOpacity style={styles.button} onPress={handleSignUp}>
+          <Text style={styles.buttonText}>Register</Text>
+        </TouchableOpacity>
 
-          {faculty !== '' && (
-            <>
-              <Text style={styles.label}>Program</Text>
-              <View style={styles.pickerContainer}>
-                <Picker
-                  selectedValue={program}
-                  onValueChange={setProgram}
-                  style={styles.picker}
-                >
-                  <Picker.Item label="Select Program" value="" />
-                  {programs.map((prog) => (
-                    <Picker.Item key={prog} label={prog} value={prog} />
-                  ))}
-                </Picker>
-              </View>
-            </>
-          )}
-        </>
-      )}
-
-      {/* Faculty only for Instructor */}
-      {role === 'Instructor' && (
-        <>
-          <Text style={styles.label}>Faculty</Text>
-          <View style={styles.pickerContainer}>
-            <Picker
-              selectedValue={faculty}
-              onValueChange={setFaculty}
-              style={styles.picker}
-            >
-              <Picker.Item label="Select Faculty" value="" />
-              {Object.keys(facultyPrograms).map((fac) => (
-                <Picker.Item key={fac} label={fac} value={fac} />
-              ))}
-            </Picker>
-          </View>
-        </>
-      )}
-
-      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
-        <Text style={styles.buttonText}>Register</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity onPress={() => router.push('/LoginScreen')}>
-        <Text style={styles.linkText}>Already have an account? Go to Login</Text>
-      </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.push('/LoginScreen')}>
+          <Text style={styles.linkText}>Already have an account? Go to Login</Text>
+        </TouchableOpacity>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  outer: {
     flex: 1,
     backgroundColor: '#eef2f3',
+  },
+  container: {
     padding: 20,
     justifyContent: 'center',
+  },
+  containerWeb: {
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
   },
   title: {
     fontSize: 28,

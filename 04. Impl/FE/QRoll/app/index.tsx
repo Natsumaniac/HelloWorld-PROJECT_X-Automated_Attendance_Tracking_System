@@ -36,13 +36,15 @@ export default function LoginScreen() {
       const data = await response.json();
 
       if (response.status === 200) {
-        Alert.alert('Success', `Welcome back, ${data.fullName}!`);
+        Alert.alert('Login Successful', `Welcome back, ${data.fullName}!`);
         // Navigate based on role
         if (data.role === 'Instructor') {
           router.push('/InsDashboard');
         } else if (data.role === 'Student') {
           router.push('/StudDashboard');
         }
+      } else if (response.status === 401) {
+        Alert.alert('Invalid Credentials', 'The email or password you entered is incorrect.');
       } else {
         Alert.alert('Error', data.message || 'Login failed');
       }
