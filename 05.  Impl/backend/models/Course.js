@@ -1,0 +1,125 @@
+const mongoose = require('mongoose');
+const crypto = require('crypto');
+
+// Function to generate a random enrollment code
+const generateEnrollmentCode = () => {
+    return crypto.randomBytes(4).toString('hex').toUpperCase();
+};
+
+// Function to generate a random attendance code
+const generateAttendanceCode = () => {
+    return Math.floor(100000 + Math.random() * 900000).toString(); // 6-digit number
+};
+
+const courseSchema = new mongoose.Schema({
+    faculty: {
+        type: String
+    },
+    program: {
+        type: String,
+        default: ''
+    },
+    courseCode: {
+        type: String,
+        required: true,
+        unique: true
+    },
+    courseTitle: {
+        type: String,
+        required: true
+    },
+    yearLevel: {
+        type: String,
+        default: ''
+    },
+    yearSection: {
+        type: String,
+        default: ''
+    },
+    schedules: {
+        type: [{
+            day: {
+                type: String,
+                enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+                required: true
+            },
+            startTime: {
+                type: String,
+                required: true
+            },
+            endTime: {
+                type: String,
+                required: true
+            }
+        }],
+        default: []
+    },
+    instructorId: {
+        type: String,
+        required: false
+    },
+    classroom: {
+        type: String,
+        default: ''
+    },
+    students: {
+        type: [String], // Store student ID numbers as strings
+        default: [],
+        validate: {
+            validator: function(v) {
+                // Ensure all values are strings and not empty
+                return v.every(id => typeof id === 'string' && id.length > 0);
+            },
+            message: 'Student IDs must be valid strings'
+        }
+    },
+    enrollmentCode: {
+        type: String // auto-generated in pre-save
+    },
+    attendanceCode: {
+        type: String // add this if you want to store it
+    },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    }
+});
+
+// Helper method to check if a student is enrolled
+courseSchema.methods.isStudentEnrolled = function(studentId) {
+    return this.students && Array.isArray(this.students) && this.students.includes(studentId);
+};
+
+// Pre-save middleware to ensure unique enrollment code
+courseSchema.pre('save', async function(next) {
+    if (this.isNew) {
+        let isUnique = false;
+        let attempts = 0;
+        const maxAttempts = 5;
+
+        while (!isUnique && attempts < maxAttempts) {
+            const code = generateEnrollmentCode();
+            const existingCourse = await this.constructor.findOne({ enrollmentCode: code });
+            
+            if (!existingCourse) {
+                this.enrollmentCode = code;
+                isUnique = true;
+            }
+            attempts++;
+        }
+
+        if (!isUnique) {
+            next(new Error('Could not generate unique enrollment code'));
+            return;
+        }
+    }
+
+    // Initialize students array if it's undefined
+    if (!this.students) {
+        this.students = [];
+    }
+    
+    next();
+});
+
+module.exports = mongoose.model('Course', courseSchema);
