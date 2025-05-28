@@ -6,8 +6,8 @@ import { Platform } from 'react-native';
 // 2. Find your new IPv4 address
 // 3. Replace the IP address below with your new IP
 export const API_URL = Platform.select({
-  android: 'http://100.30.101.70:5000',  
-  ios: 'http://100.30.101.70:5000',       
+  android: 'http://10.0.39.93:5000',  
+  ios: 'http://10.0.39.93:5000',       
   default: 'http://localhost:5000'
 });
 
